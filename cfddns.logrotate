@@ -1,0 +1,5 @@
+/var/log/cfddns.log {
+  rotate 7
+  size 10M
+  compress
+}

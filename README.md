@@ -19,6 +19,7 @@ cp cfddns /usr/local/sbin/
 cp cfddns.conf /etc/
 # Change cfddns.conf with your own settings
 chmod 640 /etc/cfddns.conf
+cp cfddns.logrotate /etc/logrotate.d/cfddns
 echo "*/5 * * * * root /usr/local/sbin/cfddns" > /etc/cron.d/cfddns
 ```
 
