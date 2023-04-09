@@ -104,7 +104,7 @@ for record in "${RECORDS_TO_UPDATE[@]}"; do
     continue
   else
     log "INFO: Record $record has been updated with IP $ip."
-    sed -i $id_file "/^record_ip_$record=/d"
+    sed -i "/^record_ip_$record=/d" $id_file
     echo "record_ip_$record=$ip" >> $id_file
   fi
 done
