@@ -28,11 +28,16 @@ echo "*/5 * * * * root /usr/local/sbin/cfddns" > /etc/cron.d/cfddns
 The configuration file looks like that:
 
 ```
+# API token, generated from your profile settings
+auth_token="<32 characters token>"
+
+# You can also use legacy authentication method using the global API key
+
 # Your cloudflare account login
-auth_email="name@domain.com"
+# auth_email="name@domain.com"
 
 # Your cloudflare token, found in your profile settings
-auth_key="<32 characters key>"
+# auth_key="<32 characters key>"
 
 # URL of a service that can provide you your public IP
 # This URL must return only the public IP, with no other text

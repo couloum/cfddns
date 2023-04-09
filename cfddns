@@ -30,12 +30,25 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-for var in auth_email auth_key zone_name records pub_ip_discovery_url; do
+for var in zone_name records pub_ip_discovery_url; do
   if [ -z "${!var}" ]; then
     echo "ERROR: parameter ${!var} is not defined." >&2
     exit 1
   fi
 done
+
+if [[ -z $auth_token ]]; then
+  if [[ -z $auth_email ]] || [[ -z $auth_key ]]; then
+    echo "ERROR: You must provide at least one authentication method. It can be 'auth_token' or 'auth_email'+'auth_key'" >&2
+    exit 1
+  else
+    CURL_AUTH_HEADERS=("-H" "X-Auth-Email: $auth_email" "-H" "X-Auth-Key: $auth_key")
+  fi
+else
+  CURL_AUTH_HEADERS=("-H" "Authorization: Bearer $auth_token")
+fi
+
+CURL_OPTS=("-s" "-H" "Content-Type: application/json")
 
 ip=$(curl -s $pub_ip_discovery_url)
 
@@ -64,7 +77,7 @@ log "INFO: The following record(s) need(s) to be updated: ${RECORDS_TO_UPDATE[*]
 # Get zone identifier
 zone_identifier=$(grep -E '^zone_identifier=' $id_file | cut -d= -f2)
 if [[ -z "$zone_identifier" ]]; then
-    zone_identifier=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$zone_name" -H "X-Auth-Email: $auth_email" -H "X-Auth-Key: $auth_key" -H "Content-Type: application/json" | grep -Eo '"id":"[^"]+' | head -n1 | cut -d':' -f2 | tr -d '"')
+    zone_identifier=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$zone_name" "${CURL_OPTS[@]}" "${CURL_AUTH_HEADERS[@]}" | grep -Eo '"id":"[^"]+' | head -n1 | cut -d':' -f2 | tr -d '"')
     if [[ ! "$zone_identifier" =~ ^[0-9a-f]{32}$ ]]; then
       log "ERROR: zone identifier is not valid ($zone_identifier)."
       exit 1
@@ -76,7 +89,7 @@ for record in "${RECORDS_TO_UPDATE[@]}"; do
   # Get record identifier
   record_identifier=$(grep -E "^record_identifier_$record=" $id_file | cut -d= -f 2)
   if [[ -z "$record_identifier" ]]; then
-    record_identifier=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?name=$record" -H "X-Auth-Email: $auth_email" -H "X-Auth-Key: $auth_key" -H "Content-Type: application/json"  | grep -Eo '"id":"[^"]+' | head -n1 | cut -d ':' -f2 | tr -d '"')
+    record_identifier=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?name=$record" "${CURL_OPTS[@]}" "${CURL_AUTH_HEADERS[@]}" | grep -Eo '"id":"[^"]+' | head -n1 | cut -d ':' -f2 | tr -d '"')
     if [[ ! "$record_identifier" =~ ^[0-9a-f]{32}$ ]]; then
       log "ERROR: Record identifier not found for record $record. Skipping it."
       continue
@@ -84,7 +97,7 @@ for record in "${RECORDS_TO_UPDATE[@]}"; do
     echo "record_identifier_$record=$record_identifier" >> $id_file
   fi
 
-  update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records/$record_identifier" -H "X-Auth-Email: $auth_email" -H "X-Auth-Key: $auth_key" -H "Content-Type: application/json" --data "{\"id\":\"$zone_identifier\",\"type\":\"A\",\"name\":\"$record\",\"content\":\"$ip\"}")
+  update=$(curl -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records/$record_identifier" "${CURL_OPTS[@]}" "${CURL_AUTH_HEADERS[@]}" --data "{\"id\":\"$zone_identifier\",\"type\":\"A\",\"name\":\"$record\",\"content\":\"$ip\"}")
 
   if [[ $update == *"\"success\":false"* ]]; then
     log "ERROR: Update failed for record $record. Cloudflare results dump:\n$update"
